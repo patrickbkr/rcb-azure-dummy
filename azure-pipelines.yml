@@ -11,7 +11,6 @@ variables:
     $devShell    = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find **\Microsoft.VisualStudio.DevShell.dll
     Import-Module $devShell
     Enter-VsDevShell -VsInstallPath $installPath -SkipAutomaticLocation -DevCmdArguments "-arch=amd64"
-  SOURCE_URL: ""
 
 stages:
 - stage: Test
@@ -40,7 +39,7 @@ stages:
             # MS BuildTools to the path.
             # To work around this, we remove a bunch of stuff we won't need
             # from PATH here.
-            $shortened_path = "$(PATH)" -replace ';[^;]*(SeleniumWebDrivers|SQL Server|Mercurial|Amazon|mysql|\\sbt\\|NSIS|Windows Performance              +Toolkit|php|Subversion)[^;]*(?=(;|$))', ''
+            $shortened_path = "$(PATH)" -replace ';[^;]*(SeleniumWebDrivers|SQL Server|Mercurial|Amazon|mysql|\\sbt\\|NSIS|Windows Performance Toolkit|php|Subversion)[^;]*(?=(;|$))', ''
             echo "##vso[task.setvariable variable=PATH]$shortened_path"
           displayName: "Shorten PATH on Windows"
           condition: eq( variables['Agent.OS'], 'Windows_NT' )
@@ -60,15 +59,23 @@ stages:
           path: rcb-script-repo
           displayName: Checkout rcb-script-repo
 
-        - script: curl -o sources.tgz $(SOURCES_URL)
+        - script: curl -o sources.tar.xz $(SOURCES_URL)
           workingDirectory: $(Pipeline.Workspace)
-          condition: succeeded()
+          condition: and(succeeded(), ne( variables['Agent.OS'], 'Windows_NT' ) )
           displayName: Download sources
-        
-        - script: tar -xzf sources.tgz
+        - pwsh: curl -o sources.tgz ${env:SOURCES_URL}
           workingDirectory: $(Pipeline.Workspace)
-          condition: succeeded()
+          condition: and(succeeded(), eq( variables['Agent.OS'], 'Windows_NT' ) )
+          displayName: Download sources (Windows)
+        
+        - script: tar -xJf sources.tar.xz
+          workingDirectory: $(Pipeline.Workspace)
+          condition: and(succeeded(), ne( variables['Agent.OS'], 'Windows_NT' ) )
           displayName: Extract sources
+        - pwsh: tar -xJf sources.tar.xz
+          workingDirectory: $(Pipeline.Workspace)
+          condition: and(succeeded(), eq( variables['Agent.OS'], 'Windows_NT' ) )
+          displayName: Extract sources (Windows)
 
         # Build MoarVM
         - script: |
@@ -131,7 +138,7 @@ stages:
         # Test Rakudo
         - script: prove -e ../install/bin/perl6 -vlr t
           workingDirectory: '$(Pipeline.Workspace)/rakudo'
-          condition: and(succeeded(), ne( variables['RELOCATABLE'], 'yes' ), ne( variables['BACKEND'], 'JVM'), ne( variables['Agent.OS'], 'Windows_NT' ),   +ne( variables['SPECTEST_ONLY'], 'yes' ) )
+          condition: and(succeeded(), ne( variables['RELOCATABLE'], 'yes' ), ne( variables['BACKEND'], 'JVM'), ne( variables['Agent.OS'], 'Windows_NT' ), ne( variables['SPECTEST_ONLY'], 'yes' ) )
           displayName: Test Rakudo
         - pwsh: |
             ${{ variables.PWSH_DEV }}
@@ -153,7 +160,7 @@ stages:
         # Run spectest
         - script: make TEST_JOBS=2 m-spectest
           workingDirectory: '$(Pipeline.Workspace)/rakudo'
-          condition: and(succeeded(), ne( variables['RELOCATABLE'], 'yes' ), ne( variables['BACKEND'], 'JVM'), ne( variables['Agent.OS'], 'Windows_NT' ),   +eq( variables['SPECTEST_ONLY'], 'yes' ) )
+          condition: and(succeeded(), ne( variables['RELOCATABLE'], 'yes' ), ne( variables['BACKEND'], 'JVM'), ne( variables['Agent.OS'], 'Windows_NT' ), eq( variables['SPECTEST_ONLY'], 'yes' ) )
           displayName: Run spectest
 
         - publish: $(Pipeline.Workspace)/install-moved
