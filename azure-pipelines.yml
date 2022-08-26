@@ -23,8 +23,8 @@ stages:
           Lin_MVM:
             IMAGE_NAME: 'ubuntu-18.04'
             RAKUDO_OPTIONS: ''
-            NQP_OPTIONS: '--backends=moar'
-            MOAR_OPTIONS: ''
+            NQP_OPTIONS: '--backends=moar --ignore-errors'
+            MOAR_OPTIONS: '--ignore-errors'
 
       pool:
         vmImage: $(IMAGE_NAME)
